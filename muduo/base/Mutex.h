@@ -14,7 +14,9 @@
 // Thread safety annotations {
 // https://clang.llvm.org/docs/ThreadSafetyAnalysis.html
 
-// Enable thread safety attributes only with clang.
+// Enable thread safety attributes only with clang.   clang编译器的线程安全attributes
+// C++没有注解(annotation)（除非给编译器打补丁，见http://llvm.org/devmtg/2011-11/#taklk3.)
+// 不能像Java那样给method或field标上@GuardedBy注解
 // The attributes can be safely erased when compiling with other compilers.
 #if defined(__clang__) && (!defined(SWIG))
 #define THREAD_ANNOTATION_ATTRIBUTE__(x)   __attribute__((x))
@@ -81,9 +83,9 @@
 
 // End of thread safety annotations }
 
-#ifdef CHECK_PTHREAD_RETURN_VALUE
+#ifdef CHECK_PTHREAD_RETURN_VALUE               // 定义检查Pthread函数返回值的宏, 防止出现ENOMEM之类的资源不足情况
 
-#ifdef NDEBUG
+#ifdef NDEBUG    // non-debug的assert
 __BEGIN_DECLS
 extern void __assert_perror_fail (int errnum,
                                   const char *file,
@@ -100,7 +102,7 @@ __END_DECLS
 #else  // CHECK_PTHREAD_RETURN_VALUE
 
 #define MCHECK(ret) ({ __typeof__ (ret) errnum = (ret);         \
-                       assert(errnum == 0); (void) errnum;})
+                       assert(errnum == 0); (void) errnum;})         // debug版本的assert
 
 #endif // CHECK_PTHREAD_RETURN_VALUE
 
@@ -118,6 +120,7 @@ namespace muduo
 //   mutable MutexLock mutex_;
 //   std::vector<int> data_ GUARDED_BY(mutex_);
 // };
+// 封装了一个互斥锁
 class CAPABILITY("mutex") MutexLock : noncopyable
 {
  public:
@@ -146,19 +149,19 @@ class CAPABILITY("mutex") MutexLock : noncopyable
 
   // internal usage
 
-  void lock() ACQUIRE()
+  void lock() ACQUIRE()             // MutexLockGuard调用，严禁用户代码调用
   {
     MCHECK(pthread_mutex_lock(&mutex_));
     assignHolder();
   }
 
-  void unlock() RELEASE()
+  void unlock() RELEASE()           // MutexLockGuard调用，严禁用户代码调用
   {
     unassignHolder();
     MCHECK(pthread_mutex_unlock(&mutex_));
   }
 
-  pthread_mutex_t* getPthreadMutex() /* non-const */
+  pthread_mutex_t* getPthreadMutex() /* non-const */        // 仅供Condition调用，严禁用户代码调用
   {
     return &mutex_;
   }
@@ -227,7 +230,8 @@ class SCOPED_CAPABILITY MutexLockGuard : noncopyable
 
 // Prevent misuse like:
 // MutexLockGuard(mutex_);
-// A tempory object doesn't hold the lock for long!
+// A temporary object doesn't hold the lock for long!
 #define MutexLockGuard(x) error "Missing guard object name"
-
+// 定义这个宏是为了防止程序中出现按照上面的错误用法一样创建临时的MutexLockGuard对象又马上销毁了
+// 结果是导致没有锁住临界区
 #endif  // MUDUO_BASE_MUTEX_H

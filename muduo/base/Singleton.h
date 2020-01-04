@@ -37,6 +37,7 @@ class Singleton : noncopyable
 
   static T& instance()
   {
+    // 使用pthread_once_t来保证lazy_initializationd的线程安全
     pthread_once(&ponce_, &Singleton::init);
     assert(value_ != NULL);
     return *value_;
@@ -45,10 +46,13 @@ class Singleton : noncopyable
  private:
   static void init()
   {
+    // 只能调用默认构造函数构造T对象，如果用户想要指定T
+    // 的构造方式，可以使用模板特化(template specialization)
+    // 技术来提供一个定制点，这需要引入另一间接层(another level of indirection),如何做？
     value_ = new T();
     if (!detail::has_no_destroy<T>::value)
     {
-      ::atexit(destroy);
+      ::atexit(destroy);   // Singleton没有考虑对象的销毁，使用atexit(3)当进程退出时调用destory销毁对象
     }
   }
 

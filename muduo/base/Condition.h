@@ -38,12 +38,17 @@ class Condition : noncopyable
 
   void notify()
   {
+    // 所有等待线程都在执行完全相同的任务，各个线程关联于条件变量的判断条件相同：共享资源是否可用
+    // 通知等待线程，资源可用
     MCHECK(pthread_cond_signal(&pcond_));
   }
 
   void notifyAll()
   {
-    MCHECK(pthread_cond_broadcast(&pcond_));
+
+   //处于等待状态的所有线程执行的任务不同（即各线程关联于条件变量的判断条件不同）
+   //通知等待线程状态发送变化
+   MCHECK(pthread_cond_broadcast(&pcond_));
   }
 
  private:
